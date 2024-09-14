@@ -2,11 +2,12 @@
 #define SVC_H
 
 #define SVCNAME TEXT("tinky")
+#define WINKEY_PATH TEXT("C:\\Users\\User\\Desktop\\tinky-winkey\\winkey.exe")
 
-VOID SvcInstall();
-VOID SvcDelete();
-VOID SvcStart();
-VOID SvcStop();
+VOID SvcInstall(void);
+VOID SvcDelete(void);
+VOID SvcStart(void);
+VOID SvcStop(void);
 
 VOID WINAPI SvcCtrlHandler(DWORD CtrlCode);
 VOID WINAPI SvcMain(DWORD dwArgc, LPTSTR* lpszArgv);

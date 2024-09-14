@@ -1,5 +1,5 @@
 CC = cl
-CFLAGS =#/Wall /WX
+CFLAGS = /Wall /WX
 LDFLAGS = Advapi32.lib Kernel32.lib Psapi.lib User32.lib Wtsapi32.lib advapi32.lib
 SRC_DIR = src
 OBJ_DIR = obj
